@@ -162,95 +162,22 @@ void BoundCondit() { // краевые условия
 }
 
 void ConsiderBoundConditFirstType(int node_num) { // учет краевых условий первого типа
-   /* double _r, _z;
-    _r = nodes[edge[0][node_num][0]].first, _z = nodes[edge[0][node_num][0]].second;
-    b[edge[0][node_num][0]] = u_g(edge[0][node_num][1], _r, _z);
-    di[edge[0][node_num][0]] = 1;
-    for (int i = ia[edge[0][node_num][0]]; i < ia[edge[0][node_num][0] + 1]; i++) {
-        int _i = ja[i];
-        if (FindInd(_i)) {
-            aal[i] = 0;
-            continue;
-        }
-        b[_i] -= b[edge[0][node_num][0]] * aal[i];
-        aal[i] = 0;
-    }
-    for (int i = edge[0][node_num][0]; i < num_nodes; i++) {
-        int k = 0;
-        for (int j = ia[i]; j < ia[i + 1]; j++) {
-            if (ja[j] == edge[0][node_num][0]) {
-                if (FindInd(i)) {
-                    aal[j] = 0;
-                    continue;
-                }
-                b[i] -= b[edge[0][node_num][0]] * aal[j];
-                aal[j] = 0;
-            }
-        }
-    }*/
+   
+
+
 }
 
-void ConsiderBoundConditSecType(int num_edge) { // учет краевых условий второго типа
-    /*vector<double> _r(3), _z(3);
-    _r[0] = nodes[edge[1][num_edge][0]].first, _z[0] = nodes[edge[1][num_edge][0]].second;
-    _r[1] = nodes[edge[1][num_edge][1]].first, _z[1] = nodes[edge[1][num_edge][1]].second;
-    _r[2] = nodes[edge[1][num_edge][2]].first, _z[2] = nodes[edge[1][num_edge][2]].second;
-    double h = sqrt(pow(_r[0] - _r[2], 2) + pow(_z[0] - _z[2], 2));
-    vector<double> b_s2(3, 0);
-    vector<double> _theta(3);
-    _theta[0] = theta(edge[1][num_edge][3], _r[0], _z[0]);
-    _theta[1] = theta(edge[1][num_edge][3], _r[1], _z[1]);
-    _theta[2] = theta(edge[1][num_edge][3], _r[2], _z[2]);
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            b_s2[i] += (A_1[i][j] * _r[0] + A_2[i][j] * _r[1] + A_3[i][j] * _r[2]) * _theta[j];
+void ConsiderBoundConditSecType() { // учет краевых условий второго типа
+    for (int i = 1; i < num_split_edge - 1; i++) {
+        int up_point = i + num_split_edge;
+        if (choice == 1) {
+            al[0][up_point] = -lambda / h_y;
+            di[i] = lambda / h_y;
         }
-        b_s2[i] *= h * beta / double(420);
-    }
-    AddLocalVecBound(1, num_edge, b_s2);*/
-}
-
-//void ConsiderBoundConditThirdType(int num_edge) { // учет краевых условий третьего типа
-//    vector<double> _r(3), _z(3);
-//    _r[0] = nodes[edge[2][num_edge][0]].first, _z[0] = nodes[edge[2][num_edge][0]].second;
-//    _r[1] = nodes[edge[2][num_edge][1]].first, _z[1] = nodes[edge[2][num_edge][1]].second;
-//    _r[2] = nodes[edge[2][num_edge][2]].first, _z[2] = nodes[edge[2][num_edge][2]].second;
-//    double h = sqrt(pow(_r[0] - _r[2], 2) + pow(_z[0] - _z[2], 2));
-//    vector<vector<double>> _A(3);
-//    _A[0].resize(1);
-//    _A[1].resize(2);
-//    _A[2].resize(3);
-//    vector<double> b_s3(3, 0);
-//    vector<double> _u_beta(3);
-//    _u_beta[0] = u_beta(edge[2][num_edge][3], _r[0], _z[0]);
-//    _u_beta[1] = u_beta(edge[2][num_edge][3], _r[1], _z[1]);
-//    _u_beta[2] = u_beta(edge[2][num_edge][3], _r[2], _z[2]);
-//    for (int i = 0; i < 3; i++) {
-//        for (int j = i; j < 3; j++) {
-//            _A[j][i] = h * beta / double(420) * (A_1[j][i] * _r[0] + A_2[j][i] * _r[1] + A_3[j][i] * _r[2]);
-//        }
-//    }
-//    AddLocalMartBound_3(num_edge, _A);
-//    for (int i = 0; i < 3; i++) {
-//        for (int j = 0; j < i; j++) {
-//            b_s3[i] += _A[i][j] * _u_beta[j];
-//        }
-//        for (int j = i; j < 3; j++) {
-//            b_s3[i] += _A[j][i] * _u_beta[j];
-//        }
-//    }
-//    AddLocalVecBound(2, num_edge, b_s3);
-//}
-
-void ConsiderBoundCondit() { // учет всех краевых
-    //for (int i = 0; i < edge[2].size(); i++) { // учет третьих краевых
-    //    ConsiderBoundConditThirdType(i);
-    //}
-    for (int i = 0; i < edge[1].size(); i++) { // учет вторых краевых
-        ConsiderBoundConditSecType(i);
-    }
-    for (int i = 0; i < edge[0].size(); i++) { // учет первых краевых(не в верхнем цикле, тк должен быть в самом конце)
-        ConsiderBoundConditFirstType(i);
+        else {
+            al[0][up_point] = -lambda / (nodes[up_point].second - nodes[i].second);
+            di[i] = lambda / (nodes[up_point].second - nodes[i].second);
+        }
     }
 }
 #pragma endregion
@@ -278,9 +205,7 @@ void BuildMatrA() {
     di.resize(num_nodes);
     for (int i = 0; i < num_nodes; i++) {
         if (FindInd(i)) continue;
-        int left_point, down_point;
-        down_point = i - num_split_edge;
-        left_point = i - 1;
+
         if (choice == 1) {     
             al[0][i] = - lambda / pow(h_y, 2);
             al[1][i] = - lambda / pow(h_x, 2);
@@ -288,10 +213,23 @@ void BuildMatrA() {
         }
 
         else {
-
+            int left_point, right_point, down_point, up_point;
+            double h_x_prev, h_x_curr, h_y_prev, h_y_curr; // предыдущий / текущий
+            down_point = i - num_split_edge;
+            up_point = i + num_split_edge;
+            left_point = i - 1;
+            right_point = i + 1;
+            h_x_prev = nodes[i].first - nodes[left_point].first;
+            h_x_curr = nodes[right_point].first - nodes[i].first;
+            h_y_prev = nodes[i].second - nodes[down_point].second;
+            h_y_curr = nodes[up_point].second - nodes[i].second;
+            al[0][i] = - 2 * lambda / (h_y_prev * (h_y_curr + h_y_prev));
+            al[1][i] = - 2 * lambda / (h_x_prev * (h_x_curr + h_x_prev));
+            di[i] = 2 * lambda * (1 / (h_x_curr * h_x_prev) + 1 / (h_y_curr * h_y_prev)) + gamma;
         }
 
     }
+    ConsiderBoundConditSecType();
 }
 
 void BuildVecB() {
