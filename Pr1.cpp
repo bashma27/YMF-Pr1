@@ -7,7 +7,7 @@
 #include <math.h>
 
 using namespace std;
-#pragma region Объявление глобальных переменных
+#pragma region Объявление глобальных переменных !!!!!!!!!!!!!!
 int num_split_edge, num_nodes, num_split; //число узлов в ребре, число узлов, количество разбиений  
 //double beta = 1, coef_z = 1.15, coef_r = 1.15; // параметр бета(константа), коэф. разрядки z, коэф. разрядки r
 //vector<int> ia, ja, choice;
