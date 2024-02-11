@@ -15,16 +15,15 @@ double lambda = 1; // коеф. лямбда
 double gamma = 1; // коеф. гамма
 int m; // расстояние между диагоналями
 vector<vector<double>> al;
-vector<double> di;
+vector<double> di, q, b;
 //vector<int> ia, ja, choice;
-vector<double> q;
 //vector<function<double(double, double)>> basic_func, deriv_basic_func_xi, deriv_basic_func_eta;
 vector<pair<double, double>> nodes; // узлы сетки, заданные координатами 
 vector<vector<vector<int>>> edge; // массив ребер с краевыми соответствующего рода
 
 #pragma endregion
 
-#pragma region Функции краевых условий и задание типа сетки
+#pragma region Задание типа сетки
 void EnterGridParameters() { // ввод параметров сетки
     cout << "Введите тип сетки:" << endl;
     cout << "1 - Равномерная;" << endl;
@@ -39,20 +38,7 @@ void EnterGridParameters() { // ввод параметров сетки
     cout << endl;
 }
 
-double u_g(int var, double r, double z) { // краевое условие первого рода
-    if (var == 0) {
-        return exp(r * z);
-    }
-    else return exp(r * z);
-}
-double theta(int var, double r, double z) { // краевое условие второго рода
-    if (var == 0) {
-        return exp(r * z) * z;
-    }
-    else {
-        return exp(r * z) * z;
-    }
-}
+
 
 //double u_beta(int var, double r, double z) { // краевое условие третьего рода
 //    if (var == 0) {
@@ -75,9 +61,18 @@ double theta(int var, double r, double z) { // краевое условие в�
 //}
 #pragma endregion
 
-#pragma region Задание функции
-double f(double r, double z) {
-    return exp(r * z) * (-z / r - z * z - r * r + 1 / r * r);
+#pragma region Задание функций
+
+double f(double x, double y) {
+    return y * y - 2;
+}
+
+double theta(double x, double y) { // краевое условие второго рода
+    return - 2 * y;
+}
+
+double u_g(double x, double y) { // краевое условие первого рода
+    return y * y;
 }
 
 #pragma endregion
@@ -88,7 +83,7 @@ void GenEndElGrid() { // создание конечноэлементной с�
     num_split_edge = num_split + 1; //число узлов в ребре 
     num_nodes = pow(num_split_edge, 2); //число узлов    
     nodes.resize(num_nodes);
-    m = num_split;
+    m = num_split - 1;
     double start_point_x, start_point_y, end_point_x, end_point_y;
     file_in >> start_point_x >> end_point_x;
     file_in >> start_point_y >> end_point_y;
@@ -161,10 +156,39 @@ void BoundCondit() { // краевые условия
     }  
 }
 
-void ConsiderBoundConditFirstType(int node_num) { // учет краевых условий первого типа
+void ConsiderBoundConditFirstType() { // учет краевых условий первого типа
    
-
-
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < num_split_edge; j++) {
+            int _i = edge[0][i][j];
+            b[_i] = u_g(nodes[_i].first, nodes[_i].second);
+            di[_i] = double(1);
+            int _i_prev, _i_next, outer_di_prev, outer_di_next; // индексы ближней и внешней диагоналей
+            _i_prev = _i - 1;
+            _i_next = _i + 1;
+            outer_di_prev = _i - num_split - 1;
+            outer_di_next = _i + num_split + 1;
+            if (al[0][_i] != 0) {
+                b[outer_di_prev] -= b[_i] * al[0][_i];
+                al[0][_i] = 0;
+            }
+            if (al[1][_i] != 0) {
+                b[_i_prev] -= b[_i] * al[1][_i];
+                al[1][_i] = 0;
+            }
+            if (_i_next >= num_nodes) continue;
+            if (al[1][_i_next] != 0) {
+                b[_i_next] -= b[_i] * al[1][_i_next];
+                al[1][_i_next] = 0;
+            }
+            if (outer_di_next >= num_nodes) continue;
+            if (al[0][outer_di_next] != 0) {
+                b[outer_di_next] -= b[_i] * al[0][outer_di_next];
+                al[0][outer_di_next] = 0;
+            }
+            
+        }
+    }
 }
 
 void ConsiderBoundConditSecType() { // учет краевых условий второго типа
@@ -178,6 +202,7 @@ void ConsiderBoundConditSecType() { // учет краевых условий в
             al[0][up_point] = -lambda / (nodes[up_point].second - nodes[i].second);
             di[i] = lambda / (nodes[up_point].second - nodes[i].second);
         }
+        b[i] = theta(nodes[i].first, nodes[i].second);
     }
 }
 #pragma endregion
@@ -229,52 +254,82 @@ void BuildMatrA() {
         }
 
     }
-    ConsiderBoundConditSecType();
 }
 
 void BuildVecB() {
-    //for (int k = 0; k < num_split * num_split; k++) {
-    //    vector<int> node_num(9);
-    //    for (int i = 0; i < 9; i++) {
-    //        node_num[i] = array_quad[k][i];
-    //    }
-    //    vector<double> _r(9), _z(9);
-    //    for (int i = 0; i < 9; i++) {
-    //        _r[i] = nodes[node_num[i]].first, _z[i] = nodes[node_num[i]].second;
-    //    }
-    //    vector<double> a(3);
-    //    a[0] = (_r[2] - _r[0]) * (_z[6] - _z[0]) - (_z[2] - _z[0]) * (_r[6] - _r[0]);
-    //    a[1] = (_r[2] - _r[0]) * (_z[8] - _z[6]) - (_z[2] - _z[0]) * (_r[8] - _r[6]);
-    //    a[2] = (_r[8] - _r[2]) * (_z[6] - _z[0]) - (_z[8] - _z[2]) * (_r[6] - _r[0]);
-    //    vector<double> p(9);
-    //    for (int i = 0; i < 9; i++) {
-    //        p[i] = f(_r[i], _z[i]);
-    //    }
+    b.resize(num_nodes);
+    for (int i = 0; i < num_nodes; i++) {
+        if (FindInd(i)) continue;
+        b[i] = f(nodes[i].first, nodes[i].second);
+    }
+}
 
-    //    int sign_a0;
-    //    if (a[0] > 0) sign_a0 = 1;
-    //    else sign_a0 = -1;
+#pragma endregion
 
-    //    localVecB(_r, _z, p, a, node_num, sign_a0);
-    //}
+#pragma region Решение СЛАУ(Гаусс-Зейдель)
+
+double norma(vector<double> v, int n) {
+    double res = 0;
+    for (int i = 0; i < n; i++) {
+        res += v[i] * v[i];
+    }
+    return sqrt(res);
+}
+
+double iter(vector<double> x0, vector<double> x, int n, int m, int i) {
+    double temp = 0;
+    temp += di[i] * x0[i];
+
+    if (i > 0) {
+        temp += al[1][i] * x0[i - 1];
+    }
+    if (i > m + 1) {
+        temp += al[0][i] * x0[i - m - 2];
+    }
+
+    if (i < n - 1) {
+        temp += al[1][i] * x0[i + 1];
+    }
+    if (i < n - m - 2) {
+        temp += al[0][i] * x0[i + m + 2];
+    }
+    temp = b[i] - temp;
+
+    return temp;
+}
+
+void GaussZaid(vector<double> q, double w, double eps, int n, int m, int max_iter) {
+    int counter = 1;
+    double resid = 1;
+    double norm = norma(b, n);
+    for (; counter < max_iter && resid > eps; counter++) {
+        resid = 0;
+        for (int i = 0; i < n; i++) {
+            double temp = iter(q, q, n, m, i);
+            q[i] = q[i] + w * temp / di[i];
+            resid += temp * temp;
+        }
+        resid = sqrt(resid) / norm;
+        cout << setprecision(15) << resid << " " << counter << endl;
+    }
 }
 #pragma endregion
 
 #pragma region Тестирование
-void Test() {
-    vector<double> q_u(num_nodes, 0);
-    for (int i = 0; i < num_nodes; i++) {
-        q_u[i] = u_g(0, nodes[i].first, nodes[i].second);
-    }
-    double norm_vec_err = 0, norm_vec_q_u = 0; // норма вектора погрешности и q_u
-    for (int i = 0; i < num_nodes; i++) {
-        norm_vec_err += (q[i] - q_u[i]) * (q[i] - q_u[i]);
-        norm_vec_q_u += (q_u[i]) * (q_u[i]);
-    }
-    cout << endl;
-    cout << "Относительная норма вектора погрешности полученного решения:" << endl;
-    cout << sqrt(norm_vec_err) / sqrt(norm_vec_q_u) << endl;
-}
+//void Test() {
+//    vector<double> q_u(num_nodes, 0);
+//    for (int i = 0; i < num_nodes; i++) {
+//        q_u[i] = u_g(0, nodes[i].first, nodes[i].second);
+//    }
+//    double norm_vec_err = 0, norm_vec_q_u = 0; // норма вектора погрешности и q_u
+//    for (int i = 0; i < num_nodes; i++) {
+//        norm_vec_err += (q[i] - q_u[i]) * (q[i] - q_u[i]);
+//        norm_vec_q_u += (q_u[i]) * (q_u[i]);
+//    }
+//    cout << endl;
+//    cout << "Относительная норма вектора погрешности полученного решения:" << endl;
+//    cout << sqrt(norm_vec_err) / sqrt(norm_vec_q_u) << endl;
+//}
 #pragma endregion
 
 int main()
@@ -284,15 +339,13 @@ int main()
     GenEndElGrid();
     BoundCondit();
     BuildMatrA();
-    /*
     BuildVecB();
-    ConsiderBoundCondit();
+    ConsiderBoundConditSecType();
+    ConsiderBoundConditFirstType();
+    
     q.resize(num_nodes, 0);
-    vector<double> r(num_nodes);
-    vector<double> z(num_nodes);
-    vector<double> Mult(num_nodes);
-    vector<double> Az(num_nodes);
     int max_iter = 1000;
     double eps = 1e-15;
-    Test();*/
+    double w = 1;
+    GaussZaid(q, w, eps, num_nodes, m, max_iter);
 }
