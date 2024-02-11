@@ -15,6 +15,7 @@ double lambda = 1; // коеф. лямбда
 double gamma = 1; // коеф. гамма
 int m; // расстояние между диагоналями
 vector<vector<double>> al;
+vector<vector<double>> au;
 vector<double> di, q, b;
 //vector<int> ia, ja, choice;
 //vector<function<double(double, double)>> basic_func, deriv_basic_func_xi, deriv_basic_func_eta;
@@ -167,33 +168,98 @@ void ConsiderBoundConditFirstType() { // учет краевых условий 
     }
 
     for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < num_split_edge; j++) {
-            int _i = edge[0][i][j];
-            int _i_prev, _i_next, outer_di_prev, outer_di_next; // индексы ближней и внешней диагоналей
-            _i_prev = _i - 1;
-            _i_next = _i + 1;
-            outer_di_prev = _i - num_split - 1;
-            outer_di_next = _i + num_split + 1;
-            if (al[0][_i] != 0) {
-                b[outer_di_prev] -= b[_i] * al[0][_i];
-                al[0][_i] = 0;
-            }
-            if (al[1][_i] != 0) {
-                b[_i_prev] -= b[_i] * al[1][_i];
-                al[1][_i] = 0;
-            }
-            if (_i_next >= num_nodes) continue;
-            if (al[1][_i_next] != 0) {
-                b[_i_next] -= b[_i] * al[1][_i_next];
-                al[1][_i_next] = 0;
-            }
-            if (outer_di_next >= num_nodes) continue;
-            if (al[0][outer_di_next] != 0) {
-                b[outer_di_next] -= b[_i] * al[0][outer_di_next];
-                al[0][outer_di_next] = 0;
-            }
 
+        if (i == 1) {
+            for (int j = 0; j < num_split_edge; j++) {
+                int _i = edge[0][i][j];
+                int _i_prev, _i_next, outer_di_prev, outer_di_next; // индексы ближней и внешней диагоналей
+                _i_prev = _i - 1;
+                _i_next = _i + 1;
+                outer_di_prev = _i - num_split - 1;
+                outer_di_next = _i + num_split + 1;
+
+                /*if (au[1][_i_prev] != 0) {
+                    b[_i_prev] -= b[_i] * au[1][_i_prev];
+                    au[1][_i_prev] = 0;
+                }*/
+                if (au[0][_i] != 0) {
+                    b[outer_di_prev] -= b[_i] * au[0][_i];
+                    au[0][_i] = 0;
+                }
+            }
         }
+        else if (i == 3) {
+            for (int j = 0; j < num_split_edge; j++) {
+                int _i = edge[0][i][j];
+                int _i_prev, _i_next, outer_di_prev, outer_di_next; // индексы ближней и внешней диагоналей
+                _i_prev = _i - 1;
+                _i_next = _i + 1;
+                outer_di_prev = _i - num_split - 1;
+                outer_di_next = _i + num_split + 1;
+
+                /*if (al[1][_i_next] != 0) {
+                    b[_i_next] -= b[_i] * al[1][_i_next];
+                    al[1][_i_next] = 0;
+                }*/
+                if (al[0][outer_di_next] != 0) {
+                    b[outer_di_next] -= b[_i] * al[0][outer_di_next];
+                    al[0][outer_di_next] = 0;
+                }
+            }
+        }
+        else {
+            for (int j = 0; j < num_split_edge; j++) {
+                int _i = edge[0][i][j];
+                int _i_prev, _i_next, outer_di_prev, outer_di_next; // индексы ближней и внешней диагоналей
+                _i_prev = _i - 1;
+                _i_next = _i + 1;
+                outer_di_prev = _i - num_split - 1;
+                outer_di_next = _i + num_split + 1;
+
+                if (i == 0) {
+                    if (au[1][_i] != 0) {
+                        b[_i_prev] -= b[_i] * au[1][_i];
+                        au[1][_i] = 0;
+                    }
+                }
+                else {
+                    if (al[1][_i_next] != 0) {
+                        b[_i_next] -= b[_i] * al[1][_i_next];
+                        al[1][_i_next] = 0;
+                    }
+                }
+                
+            }
+        }
+
+
+        //for (int j = 0; j < num_split_edge; j++) {
+        //    int _i = edge[0][i][j];
+        //    int _i_prev, _i_next, outer_di_prev, outer_di_next; // индексы ближней и внешней диагоналей
+        //    _i_prev = _i - 1;
+        //    _i_next = _i + 1;
+        //    outer_di_prev = _i - num_split - 1;
+        //    outer_di_next = _i + num_split + 1;
+        //    if (al[0][_i] != 0) {
+        //        b[outer_di_prev] -= b[_i] * al[0][_i];
+        //        al[0][_i] = 0;
+        //    }
+        //    if (al[1][_i] != 0) {
+        //        b[_i_prev] -= b[_i] * al[1][_i];
+        //        al[1][_i] = 0;
+        //    }
+        //    if (_i_next >= num_nodes) continue;
+        //    if (al[1][_i_next] != 0) {
+        //        b[_i_next] -= b[_i] * al[1][_i_next];
+        //        al[1][_i_next] = 0;
+        //    }
+        //    if (outer_di_next >= num_nodes) continue;
+        //    if (al[0][outer_di_next] != 0) {
+        //        b[outer_di_next] -= b[_i] * al[0][outer_di_next];
+        //        al[0][outer_di_next] = 0;
+        //    }
+
+        //}
     }
 
 }
@@ -234,6 +300,7 @@ bool FindInd(int i) {
 
 void BuildMatrA() {
     al.assign(2, vector<double> (num_nodes));
+    au.assign(2, vector<double> (num_nodes));
     di.resize(num_nodes);
     for (int i = 0; i < num_nodes; i++) {
         if (FindInd(i)) continue;
@@ -241,8 +308,10 @@ void BuildMatrA() {
         if (choice == 1) {     
             al[0][i] = - lambda / pow(h_y, 2);
             al[1][i] = - lambda / pow(h_x, 2);
-            al[0][i + num_split + 1] = -lambda / pow(h_y, 2);
-            al[1][i + 1] = -lambda / pow(h_x, 2);
+            au[0][i + num_split + 1] = - lambda / pow(h_y, 2);
+            au[1][i + 1] = - lambda / pow(h_x, 2);
+            /*al[0][i + num_split + 1] += -lambda / pow(h_y, 2);
+            al[1][i + 1] += -lambda / pow(h_x, 2);*/
             di[i] = 2 * lambda * (1 / pow(h_x, 2) + 1 / pow(h_y, 2)) + gamma;
         }
 
@@ -297,10 +366,10 @@ double iter(vector<double> x0, vector<double> x, int n, int m, int i) {
     }
 
     if (i < n - 1) {
-        temp += al[1][i] * x0[i + 1];
+        temp += au[1][i] * x0[i + 1];
     }
     if (i < n - m - 2) {
-        temp += al[0][i] * x0[i + m + 2];
+        temp += au[0][i] * x0[i + m + 2];
     }
     temp = b[i] - temp;
 
