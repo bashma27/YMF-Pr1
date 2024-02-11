@@ -64,15 +64,15 @@ void EnterGridParameters() { // ввод параметров сетки
 #pragma region Задание функций
 
 double f(double x, double y) {
-    return y * y - 2;
+    return y;
 }
 
-double theta(double x, double y) { // краевое условие второго рода
-    return - 2 * y;
-}
+//double theta(double x, double y) { // краевое условие второго рода
+//    return - 2 * y;
+//}
 
 double u_g(double x, double y) { // краевое условие первого рода
-    return y * y;
+    return y;
 }
 
 #pragma endregion
@@ -135,7 +135,7 @@ void GenEndElGrid() { // создание конечноэлементной с�
 
 void BoundCondit() { // краевые условия
     edge.resize(2);
-    edge[0].resize(3);
+    edge[0].resize(4);
     int start_point = num_split_edge - 1;
     for (int i = 0; i < num_nodes;) {
         edge[0][0].push_back(start_point + i);
@@ -150,19 +150,25 @@ void BoundCondit() { // краевые условия
         edge[0][2].push_back(start_point + i);
         i += num_split_edge;
     }
-    edge[1].resize(1);
+    //edge[1].resize(1);
     for (int i = 0; i < num_split_edge; i++) {
-        edge[1][0].push_back(start_point + i);
+        edge[0][3].push_back(start_point + i);
     }  
 }
 
 void ConsiderBoundConditFirstType() { // учет краевых условий первого типа
    
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         for (int j = 0; j < num_split_edge; j++) {
             int _i = edge[0][i][j];
             b[_i] = u_g(nodes[_i].first, nodes[_i].second);
-            di[_i] = double(1);
+            di[_i] = double(1);           
+        }
+    }
+
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < num_split_edge; j++) {
+            int _i = edge[0][i][j];
             int _i_prev, _i_next, outer_di_prev, outer_di_next; // индексы ближней и внешней диагоналей
             _i_prev = _i - 1;
             _i_next = _i + 1;
@@ -186,42 +192,43 @@ void ConsiderBoundConditFirstType() { // учет краевых условий 
                 b[outer_di_next] -= b[_i] * al[0][outer_di_next];
                 al[0][outer_di_next] = 0;
             }
-            
+
         }
     }
+
 }
 
-void ConsiderBoundConditSecType() { // учет краевых условий второго типа
-    for (int i = 1; i < num_split_edge - 1; i++) {
-        int up_point = i + num_split_edge;
-        if (choice == 1) {
-            al[0][up_point] = -lambda / h_y;
-            di[i] = lambda / h_y;
-        }
-        else {
-            al[0][up_point] = -lambda / (nodes[up_point].second - nodes[i].second);
-            di[i] = lambda / (nodes[up_point].second - nodes[i].second);
-        }
-        b[i] = theta(nodes[i].first, nodes[i].second);
-    }
-}
+//void ConsiderBoundConditSecType() { // учет краевых условий второго типа
+//    for (int i = 1; i < num_split_edge - 1; i++) {
+//        int up_point = i + num_split_edge;
+//        if (choice == 1) {
+//            al[0][up_point] = -lambda / h_y;
+//            di[i] = lambda / h_y;
+//        }
+//        else {
+//            al[0][up_point] = -lambda / (nodes[up_point].second - nodes[i].second);
+//            di[i] = lambda / (nodes[up_point].second - nodes[i].second);
+//        }
+//        b[i] = theta(nodes[i].first, nodes[i].second);
+//    }
+//}
 #pragma endregion
 
 #pragma region Построение глобальной матрицы и вектора
 
 bool FindInd(int i) {
-    for (int k = 0; k < 3; k++) {
+    for (int k = 0; k < 4; k++) {
         for (int j = 0; j < num_split_edge; j++) {
             if (edge[0][k][j] == i) {
                 return true;
             }
         }
     }
-    for (int j = 0; j < num_split_edge; j++) {
+    /*for (int j = 0; j < num_split_edge; j++) {
         if (edge[1][0][j] == i) {
             return true;
         }
-    }
+    }*/
     return false;
 }
 
@@ -234,6 +241,8 @@ void BuildMatrA() {
         if (choice == 1) {     
             al[0][i] = - lambda / pow(h_y, 2);
             al[1][i] = - lambda / pow(h_x, 2);
+            al[0][i + num_split + 1] = -lambda / pow(h_y, 2);
+            al[1][i + 1] = -lambda / pow(h_x, 2);
             di[i] = 2 * lambda * (1 / pow(h_x, 2) + 1 / pow(h_y, 2)) + gamma;
         }
 
@@ -340,7 +349,7 @@ int main()
     BoundCondit();
     BuildMatrA();
     BuildVecB();
-    ConsiderBoundConditSecType();
+    //ConsiderBoundConditSecType();
     ConsiderBoundConditFirstType();
     
     q.resize(num_nodes, 0);
