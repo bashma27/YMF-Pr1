@@ -22,8 +22,7 @@ vector<double> Xw, Yw; // границы области
 vector<vector<int>> W; // прямоугольники
 vector<double> di, q, b;
 vector<pair<double, double>> nodes; // узлы сетки, заданные координатами 
-vector<vector<vector<int>>> edge; // первый индекс номер краевого,
-//потом индексы: 0 - правое ребро, 1 - верхнее ребро, 2 - левое и 3 - нижнее, затем элементы номера ребер
+vector<vector<int>> edge; // первый индекс номер краевого, потом индексы
 vector<vector<pair<int, double>>> koef; // Коэффициеты n, q  для каждой области в виде пары
 
 #pragma endregion
@@ -73,33 +72,6 @@ bool IsFictitious(int num) {
             return true;
     }
     return false; // если по результату прохода узел не находится не в одном прямоугольнике то фиктивный узел.
-}
-
-//ФУНКЦИЯ ОПРЕДЕЛЯЮЩАЯ ПРАВОЕ РЕБРО
-bool IsRight(int X, int Y1, int Y2) { // На вход обязательно вертикальное ребро
-    double delta = (Xw[X] + Xw[X-1])/2; //Это смещение по x в право (можно отрегулировать)
-    double x = Xw[X - 1] + delta, y = (Yw[Y1 - 1] + Yw[Y2 - 1]) / 2;
-    int x1, x2, y1, y2;
-    for (int k = 0; k < L; k++) {
-        x1 = W[k][0]; y1 = W[k][2]; //берём корды прямоугольника
-        x2 = W[k][1]; y2 = W[k][3];
-        if (Xw[x1 - 1] <= x && Xw[x2 - 1] >= x && Yw[y1 - 1] <= y && Yw[y2 - 1] >= y) // проверка на то что точка находится в прямоугольнике
-            return false;
-    }
-    return true; // если по результату прохода точка не находится не в одном прямоугольнике, то ребро правое.
-}
-//ФУНКЦИЯ ОПРЕДЕЛЯЮЩАЯ ВЕРХНЕЕ РЕБРО
-bool IsTop(int X1, int X2, int Y) { // На вход обязательно горизонтальное ребро
-    double delta = (Yw[Y] + Yw[Y - 1]) / 2; //Это смещение по y в право (можно отрегулировать)
-    double x = (Xw[X1 - 1] + Xw[X2 - 1]) / 2, y = Yw[Y - 1] + delta;
-    int x1, x2, y1, y2;
-    for (int k = 0; k < L; k++) {
-        x1 = W[k][0]; y1 = W[k][2]; //берём корды прямоугольника
-        x2 = W[k][1]; y2 = W[k][3];
-        if (Xw[x1 - 1] <= x && Xw[x2 - 1] >= x && Yw[y1 - 1] <= y && Yw[y2 - 1] >= y) // проверка на то что точка находится в прямоугольнике
-            return false;
-    }
-    return true; // если по результату прохода точка не находится не в одном прямоугольнике, то ребро верхнее.
 }
 
 int Input_koef() {
@@ -204,10 +176,7 @@ int Create_Grid() {
     //---------------------------------------------------------
     // Дальше идёт тоже самое для последней строчки
     //---------------------------------------------------------
-    if (abs(qy - 1.0) < EPS)
-        y = Yw[i] + hy * ny;
-    else
-        y = Yw[i] + hy * (pow(qy, ny) - 1) / (qy - 1);
+    y = Yw[i];
     for (j = 0; j < Nx - 1; j++) {
         nx = koef[0][j].first;
         qx = koef[0][j].second;
@@ -241,8 +210,6 @@ int Create_Grid() {
     int x1 = 0, x2 = 0, y1 = 0, y2 = 0, ij = 0, side = 0;
     File_Edge >> num_bc1 >> num_bc2; //считывание кол-во ребер каждого краевого условия
     edge.resize(2);
-    edge[0].resize(4);
-    edge[1].resize(4);
     vector<int> corner(num_bc1 + num_bc2, -1);
     it = 0;
     for (int l = 0; l < num_bc1; l++) { // Сначало обрабатываем 1 краевые
@@ -253,38 +220,30 @@ int Create_Grid() {
         ij = i + j; // номер первого ребра
         if (x2 - x1 > 0) { // Ребро горизонтальное
             nx = CalcSum_ni(0, x1 - 1, x2 - 1); // Кол-во разбиений на этом ребре по x
-            if ((y1 == Ny)) side = 1;
-            else if (y1 == 1) side = 3;
-            else if (IsTop(x1, x2, y1)) side = 1;
-            else side = 3;
-            if (in_vector(ij, corner)) {
-                edge[0][side].push_back(ij);
+            if (InVector(ij, corner)) {
+                edge[0].push_back(ij);
                 corner[it] = ij;
                 it++;
             }
             for (int k = 1; k < nx; k++) //Тут в связи с структурой данных забиваем на повторы (set сам уберет повторы)
-                edge[0][side].push_back(ij + k);
-            if (in_vector(ij + nx, corner)) {
-                edge[0][side].push_back(ij + nx);
+                edge[0].push_back(ij + k);
+            if (InVector(ij + nx, corner)) {
+                edge[0].push_back(ij + nx);
                 corner[it] = ij + nx;
                 it++;
             }
         }
         else {
-            ny = Calc_Sum_ni(1, y1 - 1, y2 - 1); //Кол-во разбиений на этом ребре по y
-            if (x1 == Nx) side = 0;
-            else if (x1 == 1) side = 2;
-            else if (is_right(x1, y1, y2)) side = 0;
-            else side = 2;
-            if (in_vector(ij, corner)) {
-                edge[0][side].push_back(ij);
+            ny = CalcSum_ni(1, y1 - 1, y2 - 1); //Кол-во разбиений на этом ребре по y          
+            if (InVector(ij, corner)) {
+                edge[0].push_back(ij);
                 corner[it] = ij;
                 it++;
             }
             for (int k = 1; k < ny; k++) // Так же забиваем на повторы
-                edge[0][side].push_back(ij + k * num_split_edge_x);
-            if (in_vector(ij + ny * num_split_edge_x, corner)) {
-                edge[0][side].push_back(ij + ny * num_split_edge_x);
+                edge[0].push_back(ij + k * num_split_edge_x);
+            if (InVector(ij + ny * num_split_edge_x, corner)) {
+                edge[0].push_back(ij + ny * num_split_edge_x);
                 corner[it] = ij + ny * num_split_edge_x;
                 it++;
             }
@@ -293,43 +252,35 @@ int Create_Grid() {
     for (int l = 0; l < num_bc2; l++) { //Обрабатываем вторые краевыеы
         File_Edge >> x1 >> x2 >> y1 >> y2;
         //Находим номер первого узла ребра (для наглядности разделил на две операции по каждому индексу)
-        i = Calc_Sum_ni(0, 0, x1 - 1);
-        j = Calc_Sum_ni(1, 0, y1 - 1) * num_split_edge_x;
+        i = CalcSum_ni(0, 0, x1 - 1);
+        j = CalcSum_ni(1, 0, y1 - 1) * num_split_edge_x;
         ij = i + j; //номер первого узла ребра
         if (x2 - x1 > 0) { // Ребро горизонтальное
-            nx = Calc_Sum_ni(0, x1 - 1, x2 - 1); // Кол-во разбиений на этом ребре по x
-            if ((y1 == Ny)) side = 1;
-            else if (y1 == 1) side = 3;
-            else if (is_top(x1, x2, y1)) side = 1;
-            else side = 3;
-            if (in_vector(ij, corner)) {
-                edge[1][side].push_back(ij);
+            nx = CalcSum_ni(0, x1 - 1, x2 - 1); // Кол-во разбиений на этом ребре по x           
+            if (InVector(ij, corner)) {
+                edge[1].push_back(ij);
                 corner[it] = ij;
                 it++;
             }
             for (int k = 1; k < nx; k++) // Эти не совпадают
-                edge[1][side].push_back(ij + k);
-            if (in_vector(ij + nx, corner)) {
-                edge[1][side].push_back(ij + nx);
+                edge[1].push_back(ij + k);
+            if (InVector(ij + nx, corner)) {
+                edge[1].push_back(ij + nx);
                 corner[it] = ij + nx;
                 it++;
             }
         }
         else {
-            ny = Calc_Sum_ni(1, y1 - 1, y2 - 1); // Кол-во разбиений на этом ребре по y
-            if (x1 == Nx) side = 0;
-            else if (x1 == 1) side = 2;
-            else if (is_right(x1, y1, y2)) side = 0;
-            else side = 2;
-            if (in_vector(ij, corner)) {
-                edge[1][side].push_back(ij);
+            ny = CalcSum_ni(1, y1 - 1, y2 - 1); // Кол-во разбиений на этом ребре по y
+            if (InVector(ij, corner)) {
+                edge[1].push_back(ij);
                 corner[it] = ij;
                 it++;
             }
             for (int k = 1; k < ny; k++) // Эти не совпадают
-                edge[1][side].push_back(ij + k * num_split_edge_x);
-            if (in_vector(ij + ny * num_split_edge_x, corner)) {
-                edge[1][side].push_back(ij + ny * num_split_edge_x);
+                edge[1].push_back(ij + k * num_split_edge_x);
+            if (InVector(ij + ny * num_split_edge_x, corner)) {
+                edge[1].push_back(ij + ny * num_split_edge_x);
                 corner[it] = ij + ny * num_split_edge_x;
                 it++;
             }
@@ -340,63 +291,63 @@ int Create_Grid() {
 }
 
 #pragma region Генерация сетки
-void GenEndElGrid() { // создание конечноэлементной сетки
-    ifstream file_in("grid_coordinates.txt");
-    num_split_edge = num_split + 1; //число узлов в ребре 
-    num_nodes = pow(num_split_edge, 2); //число узлов    
-    nodes.resize(num_nodes);
-    m = num_split - 1;
-    double start_point_x, start_point_y, end_point_x, end_point_y;
-    file_in >> start_point_x >> end_point_x;
-    file_in >> start_point_y >> end_point_y;
-    file_in.close();
-    if (choice == 1) {
-        h_x = (end_point_x - start_point_x) / num_split;
-        h_y = (end_point_y - start_point_y) / num_split;
-        for (int i = 0, k = 0; i < num_nodes;) {
-            for (int j = 0; j < num_split_edge; j++) {
-                nodes[i + j] = { start_point_x + j * h_x, start_point_y + k * h_y };
-            }
-            i += num_split_edge;
-            k++;
-        }
-    }
-    else {   
-        for (int j = 0; j < num_split_edge; j++) {
-            if (j == 0) {
-                h_x = 0;
-                nodes[j] = { start_point_x + h_x, start_point_y };
-                h_x = (end_point_x - start_point_x) * (1 - coef_q_x) / (1 - pow(coef_q_x, num_split));
-            }
-            else {
-                nodes[j] = { nodes[j - 1].first + h_x, start_point_y};
-                h_x *= coef_q_x;
-            }
-        }
-        h_y = (end_point_y - start_point_y) * (1 - coef_q_y) / (1 - pow(coef_q_y, num_split));
-        for (int i = num_split_edge; i < num_nodes;) {
-            for (int j = 0; j < num_split_edge; j++) {
-                if (j == 0) {
-                    h_x = 0;
-                    nodes[i + j] = { start_point_x + h_x, nodes[i - 1].second + h_y };
-                    h_x = (end_point_x - start_point_x) * (1 - coef_q_x) / (1 - pow(coef_q_x, num_split));
-                }
-                else {
-                    nodes[i + j] = { nodes[j - 1].first + h_x, nodes[i - 1].second + h_y };
-                    h_x *= coef_q_x;
-                }
-            }
-            h_y *= coef_q_y;
-            i += num_split_edge;
-        }
-    }
-}
+//void GenEndElGrid() { // создание конечноэлементной сетки
+//    ifstream file_in("grid_coordinates.txt");
+//    num_split_edge = num_split + 1; //число узлов в ребре 
+//    num_nodes = pow(num_split_edge, 2); //число узлов    
+//    nodes.resize(num_nodes);
+//    m = num_split - 1;
+//    double start_point_x, start_point_y, end_point_x, end_point_y;
+//    file_in >> start_point_x >> end_point_x;
+//    file_in >> start_point_y >> end_point_y;
+//    file_in.close();
+//    if (choice == 1) {
+//        h_x = (end_point_x - start_point_x) / num_split;
+//        h_y = (end_point_y - start_point_y) / num_split;
+//        for (int i = 0, k = 0; i < num_nodes;) {
+//            for (int j = 0; j < num_split_edge; j++) {
+//                nodes[i + j] = { start_point_x + j * h_x, start_point_y + k * h_y };
+//            }
+//            i += num_split_edge;
+//            k++;
+//        }
+//    }
+//    else {   
+//        for (int j = 0; j < num_split_edge; j++) {
+//            if (j == 0) {
+//                h_x = 0;
+//                nodes[j] = { start_point_x + h_x, start_point_y };
+//                h_x = (end_point_x - start_point_x) * (1 - coef_q_x) / (1 - pow(coef_q_x, num_split));
+//            }
+//            else {
+//                nodes[j] = { nodes[j - 1].first + h_x, start_point_y};
+//                h_x *= coef_q_x;
+//            }
+//        }
+//        h_y = (end_point_y - start_point_y) * (1 - coef_q_y) / (1 - pow(coef_q_y, num_split));
+//        for (int i = num_split_edge; i < num_nodes;) {
+//            for (int j = 0; j < num_split_edge; j++) {
+//                if (j == 0) {
+//                    h_x = 0;
+//                    nodes[i + j] = { start_point_x + h_x, nodes[i - 1].second + h_y };
+//                    h_x = (end_point_x - start_point_x) * (1 - coef_q_x) / (1 - pow(coef_q_x, num_split));
+//                }
+//                else {
+//                    nodes[i + j] = { nodes[j - 1].first + h_x, nodes[i - 1].second + h_y };
+//                    h_x *= coef_q_x;
+//                }
+//            }
+//            h_y *= coef_q_y;
+//            i += num_split_edge;
+//        }
+//    }
+//}
 #pragma endregion
 
 #pragma region Работа с краевыми условиями
 
 void BoundCondit() { // краевые условия
-    edge.resize(2);
+/*    edge.resize(2);
     edge[0].resize(3);
     int start_point = num_split_edge - 1;
     for (int i = 0; i < num_nodes;) {
@@ -415,97 +366,97 @@ void BoundCondit() { // краевые условия
     edge[1].resize(1);
     for (int i = 0; i < num_split_edge; i++) {
         edge[1][0].push_back(start_point + i);
-    }  
+    } */ 
 }
 
-void ConsiderBoundConditFirstType() { // учет краевых условий первого типа
-   
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < num_split_edge; j++) {
-            int _i = edge[0][i][j];
-            b[_i] = u_g(nodes[_i].first, nodes[_i].second);
-            di[_i] = double(1);           
-        }
-    }
+//void ConsiderBoundConditFirstType() { // учет краевых условий первого типа
+//   
+//    for (int i = 0; i < 3; i++) {
+//        for (int j = 0; j < num_split_edge; j++) {
+//            int _i = edge[0][i][j];
+//            b[_i] = u_g(nodes[_i].first, nodes[_i].second);
+//            di[_i] = double(1);           
+//        }
+//    }
+//
+//}
+//
+//void ConsiderBoundConditSecType() { // учет краевых условий второго типа
+//    for (int i = 1; i < num_split_edge - 1; i++) {
+//        int up_point = i + num_split_edge;
+//        if (choice == 1) {
+//            au[0][up_point] = -lambda / h_y;
+//            di[i] = lambda / h_y;
+//        }
+//        else {
+//            au[0][up_point] = -lambda / (nodes[up_point].second - nodes[i].second);
+//            di[i] = lambda / (nodes[up_point].second - nodes[i].second);
+//        }
+//        b[i] = theta(nodes[i].first, nodes[i].second);
+//    }
+//}
+//#pragma endregion
+//
+//#pragma region Построение глобальной матрицы и вектора
+//
+//bool FindInd(int i) {
+//    for (int k = 0; k < 3; k++) {
+//        for (int j = 0; j < num_split_edge; j++) {
+//            if (edge[0][k][j] == i) {
+//                return true;
+//            }
+//        }
+//    }
+//    for (int j = 0; j < num_split_edge; j++) {
+//        if (edge[1][0][j] == i) {
+//            return true;
+//        }
+//    }
+//    return false;
+//}
+//
+//void BuildMatrA() {
+//    al.assign(2, vector<double> (num_nodes));
+//    au.assign(2, vector<double> (num_nodes));
+//    di.resize(num_nodes);
+//    for (int i = 0; i < num_nodes; i++) {
+//        if (FindInd(i)) continue;
+//
+//        if (choice == 1) {     
+//            al[0][i] = - lambda / pow(h_y, 2);
+//            al[1][i] = - lambda / pow(h_x, 2);
+//            au[0][i + num_split + 1] = - lambda / pow(h_y, 2);
+//            au[1][i + 1] = - lambda / pow(h_x, 2);
+//            di[i] = 2 * lambda * (1 / pow(h_x, 2) + 1 / pow(h_y, 2)) + gamma;
+//        }
+//
+//        else {
+//            int left_point, right_point, down_point, up_point;
+//            double h_x_prev, h_x_curr, h_y_prev, h_y_curr; // предыдущий / текущий
+//            down_point = i - num_split_edge;
+//            up_point = i + num_split_edge;
+//            left_point = i - 1;
+//            right_point = i + 1;
+//            h_x_prev = nodes[i].first - nodes[left_point].first;
+//            h_x_curr = nodes[right_point].first - nodes[i].first;
+//            h_y_prev = nodes[i].second - nodes[down_point].second;
+//            h_y_curr = nodes[up_point].second - nodes[i].second;
+//            al[0][i] = - 2 * lambda / (h_y_prev * (h_y_curr + h_y_prev));
+//            al[1][i] = - 2 * lambda / (h_x_prev * (h_x_curr + h_x_prev));
+//            au[0][i + num_split + 1] = - 2 * lambda / (h_y_curr * (h_y_curr + h_y_prev));
+//            au[1][i + 1] = - 2 * lambda / (h_x_curr * (h_x_curr + h_x_prev));
+//            di[i] = 2 * lambda * (1 / (h_x_curr * h_x_prev) + 1 / (h_y_curr * h_y_prev)) + gamma;
+//        }
+//    }
+//}
 
-}
-
-void ConsiderBoundConditSecType() { // учет краевых условий второго типа
-    for (int i = 1; i < num_split_edge - 1; i++) {
-        int up_point = i + num_split_edge;
-        if (choice == 1) {
-            au[0][up_point] = -lambda / h_y;
-            di[i] = lambda / h_y;
-        }
-        else {
-            au[0][up_point] = -lambda / (nodes[up_point].second - nodes[i].second);
-            di[i] = lambda / (nodes[up_point].second - nodes[i].second);
-        }
-        b[i] = theta(nodes[i].first, nodes[i].second);
-    }
-}
-#pragma endregion
-
-#pragma region Построение глобальной матрицы и вектора
-
-bool FindInd(int i) {
-    for (int k = 0; k < 3; k++) {
-        for (int j = 0; j < num_split_edge; j++) {
-            if (edge[0][k][j] == i) {
-                return true;
-            }
-        }
-    }
-    for (int j = 0; j < num_split_edge; j++) {
-        if (edge[1][0][j] == i) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void BuildMatrA() {
-    al.assign(2, vector<double> (num_nodes));
-    au.assign(2, vector<double> (num_nodes));
-    di.resize(num_nodes);
-    for (int i = 0; i < num_nodes; i++) {
-        if (FindInd(i)) continue;
-
-        if (choice == 1) {     
-            al[0][i] = - lambda / pow(h_y, 2);
-            al[1][i] = - lambda / pow(h_x, 2);
-            au[0][i + num_split + 1] = - lambda / pow(h_y, 2);
-            au[1][i + 1] = - lambda / pow(h_x, 2);
-            di[i] = 2 * lambda * (1 / pow(h_x, 2) + 1 / pow(h_y, 2)) + gamma;
-        }
-
-        else {
-            int left_point, right_point, down_point, up_point;
-            double h_x_prev, h_x_curr, h_y_prev, h_y_curr; // предыдущий / текущий
-            down_point = i - num_split_edge;
-            up_point = i + num_split_edge;
-            left_point = i - 1;
-            right_point = i + 1;
-            h_x_prev = nodes[i].first - nodes[left_point].first;
-            h_x_curr = nodes[right_point].first - nodes[i].first;
-            h_y_prev = nodes[i].second - nodes[down_point].second;
-            h_y_curr = nodes[up_point].second - nodes[i].second;
-            al[0][i] = - 2 * lambda / (h_y_prev * (h_y_curr + h_y_prev));
-            al[1][i] = - 2 * lambda / (h_x_prev * (h_x_curr + h_x_prev));
-            au[0][i + num_split + 1] = - 2 * lambda / (h_y_curr * (h_y_curr + h_y_prev));
-            au[1][i + 1] = - 2 * lambda / (h_x_curr * (h_x_curr + h_x_prev));
-            di[i] = 2 * lambda * (1 / (h_x_curr * h_x_prev) + 1 / (h_y_curr * h_y_prev)) + gamma;
-        }
-    }
-}
-
-void BuildVecB() {
-    b.resize(num_nodes);
-    for (int i = 0; i < num_nodes; i++) {
-        if (FindInd(i)) continue;
-        b[i] = f(nodes[i].first, nodes[i].second);
-    }
-}
+//void BuildVecB() {
+//    b.resize(num_nodes);
+//    for (int i = 0; i < num_nodes; i++) {
+//        if (FindInd(i)) continue;
+//        b[i] = f(nodes[i].first, nodes[i].second);
+//    }
+//}
 
 #pragma endregion
 
@@ -578,16 +529,17 @@ void GaussZaid(double w, double eps, int max_iter) {
 int main()
 {
     setlocale(LC_ALL, "Russian");
-    GenEndElGrid();
-    BoundCondit();
-    BuildMatrA();
-    BuildVecB();
-    ConsiderBoundConditSecType();
-    ConsiderBoundConditFirstType();   
+    Create_Grid();
+    //GenEndElGrid();
+    //BoundCondit();
+    //BuildMatrA();
+    //BuildVecB();
+    //ConsiderBoundConditSecType();
+    //ConsiderBoundConditFirstType();   
     q.resize(num_nodes, 0);
     int max_iter = 1000;
     double eps = 1e-15;
     double w = 1;
-    GaussZaid(w, eps, max_iter);
-    Output();
+    //GaussZaid(w, eps, max_iter);
+    //Output();
 }
