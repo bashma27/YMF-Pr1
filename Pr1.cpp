@@ -5,47 +5,134 @@
 #include <set>
 #include <iomanip>
 #include <math.h>
+#define EPS 1e-16 //Для сравнения double
 
 using namespace std;
+
 #pragma region Объявление глобальных переменных
-int num_split_edge, num_nodes, num_split, choice; //число узлов в ребре, число узлов, количество разбиений, выбор типа сетки
-double h_x, h_y; // шаг разбиений по x и y
-double coef_q_x, coef_q_y; // коэф. разрядки q
+int num_split_edge_x, num_split_edge_y, num_nodes; //число узлов в ребре, число узлов
+int Nx, Ny, L; // Nx - число вертикальных границ, Ny - число горизонтальных границ, L - число прямоугольников
+//double h_x, h_y; // шаг разбиений по x и y
 double lambda = 1; // коеф. лямбда
 double gamma = 1; // коеф. гамма
+int num_bc1, num_bc2; //Количество рёбер с первыми и вторыми краевыми условиями
 int m; // расстояние между диагоналями
 vector<vector<double>> al, au;
+vector<double> Xw, Yw; // границы области
+vector<vector<int>> W; // прямоугольники
 vector<double> di, q, b;
-//vector<int> ia, ja, choice;
-//vector<function<double(double, double)>> basic_func, deriv_basic_func_xi, deriv_basic_func_eta;
 vector<pair<double, double>> nodes; // узлы сетки, заданные координатами 
-vector<vector<vector<int>>> edge; // массив ребер с краевыми соответствующего рода
+vector<vector<vector<int>>> edge; // первый индекс номер краевого,
+//потом индексы: 0 - правое ребро, 1 - верхнее ребро, 2 - левое и 3 - нижнее, затем элементы номера ребер
+vector<vector<pair<int, double>>> koef; // Коэффициеты n, q  для каждой области в виде пары
 
 #pragma endregion
 
-#pragma region Задание типа сетки
-void EnterGridParameters() { // ввод параметров сетки
-    cout << "Введите тип сетки:" << endl;
-    cout << "1 - Равномерная;" << endl;
-    cout << "2 - Неравномерная;" << endl << endl;
-    cin >> choice;
-    cout << "Введите количество разбиений ребра:" << endl;
-    cin >> num_split;
-    if (choice == 2) {
-        double degree;
-        cout << "Введите коэф. разрядки по x, а затем его степень:" << endl;
-        cin >> coef_q_x;
-        cin >> degree;
-        coef_q_x = pow(coef_q_x, degree);
-        cout << "Введите коэф. разрядки по y, а затем его степень:" << endl;
-        cin >> coef_q_y;
-        cin >> degree;
-        coef_q_y = pow(coef_q_y, degree);
+int InputBorders() {
+    ifstream File_Grid("grid.txt");
+    if (!File_Grid.is_open()) return 1;
+    File_Grid >> Nx;
+    Xw.resize(Nx);
+    for (int i = 0; i < Nx; i++) {
+        File_Grid >> Xw[i];
     }
-    cout << endl;
+    File_Grid >> Ny;
+    Yw.resize(Ny);
+    for (int i = 0; i < Ny; i++) {
+        File_Grid >> Yw[i];
+    }
+    File_Grid >> L;
+    W.resize(L);
+    for (int i = 0; i < L; i++)
+        W[i].resize(4);
+    for (int i = 0; i < L; i++) {
+        for (int j = 0; j < 4; j++) {
+            File_Grid >> W[i][j];
+        }
+    }
+    File_Grid.close();
+    return 0;
 }
 
-#pragma endregion
+int CalcSum_ni(int index, int start, int stop) { // Посчитать сумму ni по порядку от start до end
+    int value = 0;
+    for (int k = start; k < stop; k++) {
+        value += koef[index][k].first;
+    }
+    return value;
+}
+
+//ФУНКЦИЯ ОПРЕДЕЛЯЮЩАЯ ФИКТИВНЫЙ УЗЕЛ
+bool IsFictitious(int num) {
+    double x = nodes[num].first, y = nodes[num].second;
+    int x1, x2, y1, y2;
+    for (int k = 0; k < L; k++) {
+        x1 = W[k][0]; y1 = W[k][2]; //берём индексы координат прямоугольника
+        x2 = W[k][1]; y2 = W[k][3];
+        if (Xw[x1 - 1] <= x && Xw[x2 - 1] >= x && Yw[y1 - 1] <= y && Yw[y2 - 1] >= y) // проверка на то что узел находится в прямоугольнике
+            return true;
+    }
+    return false; // если по результату прохода узел не находится не в одном прямоугольнике то фиктивный узел.
+}
+
+//ФУНКЦИЯ ОПРЕДЕЛЯЮЩАЯ ПРАВОЕ РЕБРО
+bool IsRight(int X, int Y1, int Y2) { // На вход обязательно вертикальное ребро
+    double delta = (Xw[X] + Xw[X-1])/2; //Это смещение по x в право (можно отрегулировать)
+    double x = Xw[X - 1] + delta, y = (Yw[Y1 - 1] + Yw[Y2 - 1]) / 2;
+    int x1, x2, y1, y2;
+    for (int k = 0; k < L; k++) {
+        x1 = W[k][0]; y1 = W[k][2]; //берём корды прямоугольника
+        x2 = W[k][1]; y2 = W[k][3];
+        if (Xw[x1 - 1] <= x && Xw[x2 - 1] >= x && Yw[y1 - 1] <= y && Yw[y2 - 1] >= y) // проверка на то что точка находится в прямоугольнике
+            return false;
+    }
+    return true; // если по результату прохода точка не находится не в одном прямоугольнике, то ребро правое.
+}
+//ФУНКЦИЯ ОПРЕДЕЛЯЮЩАЯ ВЕРХНЕЕ РЕБРО
+bool IsTop(int X1, int X2, int Y) { // На вход обязательно горизонтальное ребро
+    double delta = (Yw[Y] + Yw[Y - 1]) / 2; //Это смещение по y в право (можно отрегулировать)
+    double x = (Xw[X1 - 1] + Xw[X2 - 1]) / 2, y = Yw[Y - 1] + delta;
+    int x1, x2, y1, y2;
+    for (int k = 0; k < L; k++) {
+        x1 = W[k][0]; y1 = W[k][2]; //берём корды прямоугольника
+        x2 = W[k][1]; y2 = W[k][3];
+        if (Xw[x1 - 1] <= x && Xw[x2 - 1] >= x && Yw[y1 - 1] <= y && Yw[y2 - 1] >= y) // проверка на то что точка находится в прямоугольнике
+            return false;
+    }
+    return true; // если по результату прохода точка не находится не в одном прямоугольнике, то ребро верхнее.
+}
+
+int Input_koef() {
+    ifstream File_Koef("koef.txt");
+    if (!File_Koef.is_open()) return 1;
+    koef.resize(2);
+    koef[0].resize(Nx - 1);
+    koef[1].resize(Ny - 1);
+    int ni;
+    double qi;
+    for (int i = 0; i < Nx - 1; i++) {
+        File_Koef >> ni >> qi;
+        koef[0][i] = { ni, qi };
+    }
+    for (int i = 0; i < Ny - 1; i++) {
+        File_Koef >> ni >> qi;
+        koef[1][i] = { ni, qi };
+    }
+    File_Koef.close();
+    num_split_edge_x = CalcSum_ni(0, 0, Nx - 1) + 1;
+    num_split_edge_y = CalcSum_ni(1, 0, Ny - 1) + 1;
+    num_nodes = num_split_edge_x * num_split_edge_y;
+    nodes.resize(num_nodes);
+    return 0;
+}
+
+bool InVector(int value, vector<int>& temp) { //Для записи в более коротком формате.
+    for (auto var : temp) {
+        if (var == value)
+            return false;
+    }
+    return true;
+}
 
 #pragma region Задание функций
 
@@ -77,6 +164,180 @@ void Output() {
     f_result.close();
 }
 #pragma endregion
+
+int Create_Grid() {
+    InputBorders(); // Загрузка границ области и прямоугольников
+    Input_koef(); // Загрузка коэфициентов и объявление некторых констант
+    int nx = 0, ny = 0, j = 0, i = 0; //nx и ny для подсчёта кол-ва разбиений до нужной точки
+    int it = 0; // текущий номер последнего элемента в nodes
+    double qx = 1.0, qy = 1.0, hy = 0.0, hx = 0.0, y = 0.0;
+    for (i = 0; i < Ny - 1; i++) { // перебираем все коэфициенты по y
+        ny = koef[1][i].first;
+        qy = koef[1][i].second;
+        if (abs(qy - 1.0) < EPS)
+            hy = (Yw[i + 1] - Yw[i]) / ny; // вычисления шага для равномерной сетки
+        else
+            hy = (Yw[i + 1] - Yw[i]) * (qy - 1) / (pow(qy, ny) - 1); //вычисление h0 для неравномерной сетки
+        for (int l = 0; l < ny; l++, it++) { // цикл по каждому разбиению по y
+            if (abs(qy - 1.0) < EPS) // подсчёт текущего y
+                y = Yw[i] + hy * l;
+            else
+                y = Yw[i] + hy * (pow(qy, l) - 1) / (qy - 1);
+            for (j = 0; j < Nx - 1; j++) { // перебор всех коэфициентов по x
+                nx = koef[0][j].first;
+                qx = koef[0][j].second;
+                if (abs(qx - 1.0) < EPS)
+                    hx = (Xw[j + 1] - Xw[j]) / nx; // вычисление шага для равномерной сетки
+                else
+                    hx = (Xw[j + 1] - Xw[j]) * (qx - 1) / (pow(qx, nx) - 1); // вычисление h0 для неравномерной сетки
+                for (int k = 0; k < nx; k++, it++) {
+                    if (abs(qx - 1.0) < EPS) // считаем текущий x и кладём всё в nodes
+                        nodes[it] = { Xw[j] + k * hx, y };
+                    else
+                        nodes[it] = { Xw[j] + hx * (pow(qx, k) - 1) / (qx - 1), y };
+                }
+            }
+            nodes[it] = { Xw[j], y }; // Кладётся конец для x, иначе бы элемент бы повторялся
+        }
+
+    }
+    //---------------------------------------------------------
+    // Дальше идёт тоже самое для последней строчки
+    //---------------------------------------------------------
+    if (abs(qy - 1.0) < EPS)
+        y = Yw[i] + hy * ny;
+    else
+        y = Yw[i] + hy * (pow(qy, ny) - 1) / (qy - 1);
+    for (j = 0; j < Nx - 1; j++) {
+        nx = koef[0][j].first;
+        qx = koef[0][j].second;
+        if (abs(qx - 1.0) < EPS)
+            hx = (Xw[j + 1] - Xw[j]) / nx;
+        else
+            hx = (Xw[j + 1] - Xw[j]) * (qx - 1) / (pow(qx, nx) - 1);
+        for (int k = 0; k < nx; k++, it++) {
+            if (abs(qx - 1.0) < EPS)
+                nodes[it] = { Xw[j] + k * hx, y };
+            else
+                nodes[it] = { Xw[j] + hx * (pow(qx, k) - 1) / (qx - 1), y };
+        }
+    }
+    nodes[it] = { Xw[j], y };
+    //---------------------------------------------------------------
+
+    // Заполнение edge
+    /*
+        Пример ввода edge.txt (Сначало 1 краевые, потом вторые краевые)
+        6 6
+        1 4 1 1
+        4 4 1 2
+        1 1 1 6
+        4 4 5 6
+        ...
+        1 4 6 6
+    */
+    ifstream File_Edge("edge.txt");
+    if (!File_Edge.is_open()) return 1;
+    int x1 = 0, x2 = 0, y1 = 0, y2 = 0, ij = 0, side = 0;
+    File_Edge >> num_bc1 >> num_bc2; //считывание кол-во ребер каждого краевого условия
+    edge.resize(2);
+    edge[0].resize(4);
+    edge[1].resize(4);
+    vector<int> corner(num_bc1 + num_bc2, -1);
+    it = 0;
+    for (int l = 0; l < num_bc1; l++) { // Сначало обрабатываем 1 краевые
+        File_Edge >> x1 >> x2 >> y1 >> y2;
+        // Находим номер первого узла ребра (для наглядности разделил на две операции по каждому индексу)
+        i = CalcSum_ni(0, 0, x1 - 1);
+        j = CalcSum_ni(1, 0, y1 - 1) * num_split_edge_x;
+        ij = i + j; // номер первого ребра
+        if (x2 - x1 > 0) { // Ребро горизонтальное
+            nx = CalcSum_ni(0, x1 - 1, x2 - 1); // Кол-во разбиений на этом ребре по x
+            if ((y1 == Ny)) side = 1;
+            else if (y1 == 1) side = 3;
+            else if (IsTop(x1, x2, y1)) side = 1;
+            else side = 3;
+            if (in_vector(ij, corner)) {
+                edge[0][side].push_back(ij);
+                corner[it] = ij;
+                it++;
+            }
+            for (int k = 1; k < nx; k++) //Тут в связи с структурой данных забиваем на повторы (set сам уберет повторы)
+                edge[0][side].push_back(ij + k);
+            if (in_vector(ij + nx, corner)) {
+                edge[0][side].push_back(ij + nx);
+                corner[it] = ij + nx;
+                it++;
+            }
+        }
+        else {
+            ny = Calc_Sum_ni(1, y1 - 1, y2 - 1); //Кол-во разбиений на этом ребре по y
+            if (x1 == Nx) side = 0;
+            else if (x1 == 1) side = 2;
+            else if (is_right(x1, y1, y2)) side = 0;
+            else side = 2;
+            if (in_vector(ij, corner)) {
+                edge[0][side].push_back(ij);
+                corner[it] = ij;
+                it++;
+            }
+            for (int k = 1; k < ny; k++) // Так же забиваем на повторы
+                edge[0][side].push_back(ij + k * num_split_edge_x);
+            if (in_vector(ij + ny * num_split_edge_x, corner)) {
+                edge[0][side].push_back(ij + ny * num_split_edge_x);
+                corner[it] = ij + ny * num_split_edge_x;
+                it++;
+            }
+        }
+    }
+    for (int l = 0; l < num_bc2; l++) { //Обрабатываем вторые краевыеы
+        File_Edge >> x1 >> x2 >> y1 >> y2;
+        //Находим номер первого узла ребра (для наглядности разделил на две операции по каждому индексу)
+        i = Calc_Sum_ni(0, 0, x1 - 1);
+        j = Calc_Sum_ni(1, 0, y1 - 1) * num_split_edge_x;
+        ij = i + j; //номер первого узла ребра
+        if (x2 - x1 > 0) { // Ребро горизонтальное
+            nx = Calc_Sum_ni(0, x1 - 1, x2 - 1); // Кол-во разбиений на этом ребре по x
+            if ((y1 == Ny)) side = 1;
+            else if (y1 == 1) side = 3;
+            else if (is_top(x1, x2, y1)) side = 1;
+            else side = 3;
+            if (in_vector(ij, corner)) {
+                edge[1][side].push_back(ij);
+                corner[it] = ij;
+                it++;
+            }
+            for (int k = 1; k < nx; k++) // Эти не совпадают
+                edge[1][side].push_back(ij + k);
+            if (in_vector(ij + nx, corner)) {
+                edge[1][side].push_back(ij + nx);
+                corner[it] = ij + nx;
+                it++;
+            }
+        }
+        else {
+            ny = Calc_Sum_ni(1, y1 - 1, y2 - 1); // Кол-во разбиений на этом ребре по y
+            if (x1 == Nx) side = 0;
+            else if (x1 == 1) side = 2;
+            else if (is_right(x1, y1, y2)) side = 0;
+            else side = 2;
+            if (in_vector(ij, corner)) {
+                edge[1][side].push_back(ij);
+                corner[it] = ij;
+                it++;
+            }
+            for (int k = 1; k < ny; k++) // Эти не совпадают
+                edge[1][side].push_back(ij + k * num_split_edge_x);
+            if (in_vector(ij + ny * num_split_edge_x, corner)) {
+                edge[1][side].push_back(ij + ny * num_split_edge_x);
+                corner[it] = ij + ny * num_split_edge_x;
+                it++;
+            }
+        }
+    }
+    File_Edge.close();
+    corner.clear();
+}
 
 #pragma region Генерация сетки
 void GenEndElGrid() { // создание конечноэлементной сетки
@@ -317,7 +578,6 @@ void GaussZaid(double w, double eps, int max_iter) {
 int main()
 {
     setlocale(LC_ALL, "Russian");
-    EnterGridParameters();
     GenEndElGrid();
     BoundCondit();
     BuildMatrA();
