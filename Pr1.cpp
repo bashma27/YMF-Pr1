@@ -69,9 +69,9 @@ bool IsFictitious(int num) {
         x1 = W[k][0]; y1 = W[k][2]; //берём индексы координат прямоугольника
         x2 = W[k][1]; y2 = W[k][3];
         if (Xw[x1 - 1] <= x && Xw[x2 - 1] >= x && Yw[y1 - 1] <= y && Yw[y2 - 1] >= y) // проверка на то что узел находится в прямоугольнике
-            return true;
+            return false;
     }
-    return false; // если по результату прохода узел не находится не в одном прямоугольнике то фиктивный узел.
+    return true; // если по результату прохода узел не находится не в одном прямоугольнике то фиктивный узел.
 }
 
 int Input_koef() {
@@ -344,119 +344,75 @@ int Create_Grid() {
 //}
 #pragma endregion
 
-#pragma region Работа с краевыми условиями
+#pragma region Работа с краевыми условиями и фиктивными узлами
 
-void BoundCondit() { // краевые условия
-/*    edge.resize(2);
-    edge[0].resize(3);
-    int start_point = num_split_edge - 1;
-    for (int i = 0; i < num_nodes;) {
-        edge[0][0].push_back(start_point + i);
-        i += num_split_edge;
+void ConsiderBoundConditFirstType() { // учет краевых условий первого типа
+   
+    for (int i = 0; i < edge[0].size(); i++) {
+        int j = edge[0][i]; 
+        b[j] = u_g(nodes[j].first, nodes[j].second);
+        di[j] = double(1);
     }
-    start_point = num_nodes - num_split_edge;
-    for (int i = 0; i < num_split_edge; i++) {
-        edge[0][1].push_back(start_point + i);
-    }
-    start_point = 0;
-    for (int i = 0; i < num_nodes;) {
-        edge[0][2].push_back(start_point + i);
-        i += num_split_edge;
-    }
-    edge[1].resize(1);
-    for (int i = 0; i < num_split_edge; i++) {
-        edge[1][0].push_back(start_point + i);
-    } */ 
+
 }
 
-//void ConsiderBoundConditFirstType() { // учет краевых условий первого типа
-//   
-//    for (int i = 0; i < 3; i++) {
-//        for (int j = 0; j < num_split_edge; j++) {
-//            int _i = edge[0][i][j];
-//            b[_i] = u_g(nodes[_i].first, nodes[_i].second);
-//            di[_i] = double(1);           
-//        }
-//    }
-//
-//}
-//
-//void ConsiderBoundConditSecType() { // учет краевых условий второго типа
-//    for (int i = 1; i < num_split_edge - 1; i++) {
-//        int up_point = i + num_split_edge;
-//        if (choice == 1) {
-//            au[0][up_point] = -lambda / h_y;
-//            di[i] = lambda / h_y;
-//        }
-//        else {
-//            au[0][up_point] = -lambda / (nodes[up_point].second - nodes[i].second);
-//            di[i] = lambda / (nodes[up_point].second - nodes[i].second);
-//        }
-//        b[i] = theta(nodes[i].first, nodes[i].second);
-//    }
-//}
-//#pragma endregion
-//
-//#pragma region Построение глобальной матрицы и вектора
-//
-//bool FindInd(int i) {
-//    for (int k = 0; k < 3; k++) {
-//        for (int j = 0; j < num_split_edge; j++) {
-//            if (edge[0][k][j] == i) {
-//                return true;
-//            }
-//        }
-//    }
-//    for (int j = 0; j < num_split_edge; j++) {
-//        if (edge[1][0][j] == i) {
-//            return true;
-//        }
-//    }
-//    return false;
-//}
-//
-//void BuildMatrA() {
-//    al.assign(2, vector<double> (num_nodes));
-//    au.assign(2, vector<double> (num_nodes));
-//    di.resize(num_nodes);
-//    for (int i = 0; i < num_nodes; i++) {
-//        if (FindInd(i)) continue;
-//
-//        if (choice == 1) {     
-//            al[0][i] = - lambda / pow(h_y, 2);
-//            al[1][i] = - lambda / pow(h_x, 2);
-//            au[0][i + num_split + 1] = - lambda / pow(h_y, 2);
-//            au[1][i + 1] = - lambda / pow(h_x, 2);
-//            di[i] = 2 * lambda * (1 / pow(h_x, 2) + 1 / pow(h_y, 2)) + gamma;
-//        }
-//
-//        else {
-//            int left_point, right_point, down_point, up_point;
-//            double h_x_prev, h_x_curr, h_y_prev, h_y_curr; // предыдущий / текущий
-//            down_point = i - num_split_edge;
-//            up_point = i + num_split_edge;
-//            left_point = i - 1;
-//            right_point = i + 1;
-//            h_x_prev = nodes[i].first - nodes[left_point].first;
-//            h_x_curr = nodes[right_point].first - nodes[i].first;
-//            h_y_prev = nodes[i].second - nodes[down_point].second;
-//            h_y_curr = nodes[up_point].second - nodes[i].second;
-//            al[0][i] = - 2 * lambda / (h_y_prev * (h_y_curr + h_y_prev));
-//            al[1][i] = - 2 * lambda / (h_x_prev * (h_x_curr + h_x_prev));
-//            au[0][i + num_split + 1] = - 2 * lambda / (h_y_curr * (h_y_curr + h_y_prev));
-//            au[1][i + 1] = - 2 * lambda / (h_x_curr * (h_x_curr + h_x_prev));
-//            di[i] = 2 * lambda * (1 / (h_x_curr * h_x_prev) + 1 / (h_y_curr * h_y_prev)) + gamma;
-//        }
-//    }
-//}
+void ConsiderBoundConditSecType() { // учет краевых условий второго типа
+    for (int i = 0; i < edge[1].size(); i++) {
+        int j = edge[1][i];
+        int up_point = j + num_split_edge_x;
+        au[0][up_point] = -lambda / (nodes[up_point].second - nodes[j].second);
+        di[j] = lambda / (nodes[up_point].second - nodes[j].second);
+        b[j] = theta(nodes[j].first, nodes[j].second);
+    }
+}
 
-//void BuildVecB() {
-//    b.resize(num_nodes);
-//    for (int i = 0; i < num_nodes; i++) {
-//        if (FindInd(i)) continue;
-//        b[i] = f(nodes[i].first, nodes[i].second);
-//    }
-//}
+void ConsiderFictitiousNodes() { // учет фиктивных узлов
+    for (int i = 0; i < num_nodes; i++) {
+        if (IsFictitious(i)) {
+            b[i] = 0;
+            di[i] = double(1);
+        }
+    }
+}
+#pragma endregion
+
+#pragma region Построение глобальной матрицы и вектора
+
+void BuildMatrA() {
+    al.assign(2, vector<double> (num_nodes));
+    au.assign(2, vector<double> (num_nodes));
+    di.resize(num_nodes);
+    for (int i = 0; i < num_nodes; i++) {
+        if (!InVector(i, edge[0]) || !InVector(i, edge[1])) continue;
+        if (IsFictitious(i)) continue;
+
+        int left_point, right_point, down_point, up_point;
+        double h_x_prev, h_x_curr, h_y_prev, h_y_curr; // предыдущий / текущий
+        down_point = i - num_split_edge_x;
+        up_point = i + num_split_edge_x;
+        left_point = i - 1;
+        right_point = i + 1;
+        h_x_prev = nodes[i].first - nodes[left_point].first;
+        h_x_curr = nodes[right_point].first - nodes[i].first;
+        h_y_prev = nodes[i].second - nodes[down_point].second;
+        h_y_curr = nodes[up_point].second - nodes[i].second;
+        al[0][i] = -2 * lambda / (h_y_prev * (h_y_curr + h_y_prev));
+        al[1][i] = -2 * lambda / (h_x_prev * (h_x_curr + h_x_prev));
+        au[0][i + num_split_edge_x] = -2 * lambda / (h_y_curr * (h_y_curr + h_y_prev));
+        au[1][i + 1] = -2 * lambda / (h_x_curr * (h_x_curr + h_x_prev));
+        di[i] = 2 * lambda * (1 / (h_x_curr * h_x_prev) + 1 / (h_y_curr * h_y_prev)) + gamma;
+        
+    }
+}
+
+void BuildVecB() {
+    b.resize(num_nodes);
+    for (int i = 0; i < num_nodes; i++) {
+        if (!InVector(i, edge[0]) || !InVector(i, edge[1])) continue;
+        if (IsFictitious(i)) continue;
+        b[i] = f(nodes[i].first, nodes[i].second);
+    }
+}
 
 #pragma endregion
 
@@ -530,16 +486,16 @@ int main()
 {
     setlocale(LC_ALL, "Russian");
     Create_Grid();
-    //GenEndElGrid();
-    //BoundCondit();
-    //BuildMatrA();
-    //BuildVecB();
-    //ConsiderBoundConditSecType();
-    //ConsiderBoundConditFirstType();   
+    BuildMatrA();
+    BuildVecB();
+    ConsiderBoundConditSecType();
+    ConsiderBoundConditFirstType();
+    ConsiderFictitiousNodes();
+    m = num_split_edge_x - 2;
     q.resize(num_nodes, 0);
     int max_iter = 1000;
     double eps = 1e-15;
     double w = 1;
-    //GaussZaid(w, eps, max_iter);
-    //Output();
+    GaussZaid(w, eps, max_iter);
+    Output();
 }
