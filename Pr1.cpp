@@ -10,12 +10,11 @@
 using namespace std;
 
 #pragma region Объявление глобальных переменных
-int num_split_edge_x, num_split_edge_y, num_nodes; //число узлов в ребре, число узлов
+int NUM__NODES_IN_EDGE_X, NUM__NODES_IN_EDGE_Y, NUM_NODES; //число узлов в ребре по x/y, число узлов
 int Nx, Ny, L; // Nx - число вертикальных границ, Ny - число горизонтальных границ, L - число прямоугольников
-//double h_x, h_y; // шаг разбиений по x и y
-double lambda = 1; // коеф. лямбда
-double gamma = 1; // коеф. гамма
-int num_bc1, num_bc2; //Количество рёбер с первыми и вторыми краевыми условиями
+double LAMBDA = 1; // коеф. лямбда
+double GAMMA = 2; // коеф. гамма
+int NUM_BOUND_COND_1, NUM_BOUND_COND_2; //Количество рёбер с первыми и вторыми краевыми условиями
 int m; // расстояние между диагоналями
 vector<vector<double>> al, au;
 vector<double> Xw, Yw; // границы области
@@ -27,6 +26,7 @@ vector<vector<pair<int, double>>> koef; // Коэффициеты n, q  для �
 
 #pragma endregion
 
+#pragma region Работа с сеткой 
 int InputBorders() {
     ifstream File_Grid("grid.txt");
     if (!File_Grid.is_open()) return 1;
@@ -91,10 +91,10 @@ int Input_koef() {
         koef[1][i] = { ni, qi };
     }
     File_Koef.close();
-    num_split_edge_x = CalcSum_ni(0, 0, Nx - 1) + 1;
-    num_split_edge_y = CalcSum_ni(1, 0, Ny - 1) + 1;
-    num_nodes = num_split_edge_x * num_split_edge_y;
-    nodes.resize(num_nodes);
+    NUM__NODES_IN_EDGE_X = CalcSum_ni(0, 0, Nx - 1) + 1;
+    NUM__NODES_IN_EDGE_Y = CalcSum_ni(1, 0, Ny - 1) + 1;
+    NUM_NODES = NUM__NODES_IN_EDGE_X * NUM__NODES_IN_EDGE_Y;
+    nodes.resize(NUM_NODES);
     return 0;
 }
 
@@ -105,22 +105,20 @@ bool InVector(int value, vector<int>& temp) { //Для записи в боле�
     }
     return true;
 }
+#pragma endregion
 
 #pragma region Задание функций
 
 double f(double x, double y) {
-    return y * x;
-    //return y * y - 2;
+    return 2 * (x * x * x * x + y * y * y * y) - 12 * (x * x + y * y);
 }
 
 double theta(double x, double y) { // краевое условие второго рода
-    return - x;
-    //return - 2 * y;
+    return - 8;
 }
 
 double u_g(double x, double y) { // краевое условие первого рода
-    return y * x;
-    //return y * y;
+    return x * x * x * x + y * y * y * y;
 }
 
 #pragma endregion
@@ -130,13 +128,14 @@ void Output() {
     ofstream f_result;
     f_result.imbue(locale("Russian"));
     f_result.open("f_result.txt");
-    for (int i = 0; i < num_nodes; i++) {
+    for (int i = 0; i < NUM_NODES; i++) {
         f_result << setprecision(15) << q[i] << endl;
     }
     f_result.close();
 }
 #pragma endregion
 
+#pragma region Генерация сетки
 int Create_Grid() {
     InputBorders(); // Загрузка границ области и прямоугольников
     Input_koef(); // Загрузка коэфициентов и объявление некторых констант
@@ -208,15 +207,15 @@ int Create_Grid() {
     ifstream File_Edge("edge.txt");
     if (!File_Edge.is_open()) return 1;
     int x1 = 0, x2 = 0, y1 = 0, y2 = 0, ij = 0, side = 0;
-    File_Edge >> num_bc1 >> num_bc2; //считывание кол-во ребер каждого краевого условия
+    File_Edge >> NUM_BOUND_COND_1 >> NUM_BOUND_COND_2; //считывание кол-во ребер каждого краевого условия
     edge.resize(2);
-    vector<int> corner(num_bc1 + num_bc2, -1);
+    vector<int> corner(NUM_BOUND_COND_1 + NUM_BOUND_COND_2, -1);
     it = 0;
-    for (int l = 0; l < num_bc1; l++) { // Сначало обрабатываем 1 краевые
+    for (int l = 0; l < NUM_BOUND_COND_1; l++) { // Сначало обрабатываем 1 краевые
         File_Edge >> x1 >> x2 >> y1 >> y2;
         // Находим номер первого узла ребра (для наглядности разделил на две операции по каждому индексу)
         i = CalcSum_ni(0, 0, x1 - 1);
-        j = CalcSum_ni(1, 0, y1 - 1) * num_split_edge_x;
+        j = CalcSum_ni(1, 0, y1 - 1) * NUM__NODES_IN_EDGE_X;
         ij = i + j; // номер первого ребра
         if (x2 - x1 > 0) { // Ребро горизонтальное
             nx = CalcSum_ni(0, x1 - 1, x2 - 1); // Кол-во разбиений на этом ребре по x
@@ -241,19 +240,19 @@ int Create_Grid() {
                 it++;
             }
             for (int k = 1; k < ny; k++) // Так же забиваем на повторы
-                edge[0].push_back(ij + k * num_split_edge_x);
-            if (InVector(ij + ny * num_split_edge_x, corner)) {
-                edge[0].push_back(ij + ny * num_split_edge_x);
-                corner[it] = ij + ny * num_split_edge_x;
+                edge[0].push_back(ij + k * NUM__NODES_IN_EDGE_X);
+            if (InVector(ij + ny * NUM__NODES_IN_EDGE_X, corner)) {
+                edge[0].push_back(ij + ny * NUM__NODES_IN_EDGE_X);
+                corner[it] = ij + ny * NUM__NODES_IN_EDGE_X;
                 it++;
             }
         }
     }
-    for (int l = 0; l < num_bc2; l++) { //Обрабатываем вторые краевыеы
+    for (int l = 0; l < NUM_BOUND_COND_2; l++) { //Обрабатываем вторые краевыеы
         File_Edge >> x1 >> x2 >> y1 >> y2;
         //Находим номер первого узла ребра (для наглядности разделил на две операции по каждому индексу)
         i = CalcSum_ni(0, 0, x1 - 1);
-        j = CalcSum_ni(1, 0, y1 - 1) * num_split_edge_x;
+        j = CalcSum_ni(1, 0, y1 - 1) * NUM__NODES_IN_EDGE_X;
         ij = i + j; //номер первого узла ребра
         if (x2 - x1 > 0) { // Ребро горизонтальное
             nx = CalcSum_ni(0, x1 - 1, x2 - 1); // Кол-во разбиений на этом ребре по x           
@@ -278,10 +277,10 @@ int Create_Grid() {
                 it++;
             }
             for (int k = 1; k < ny; k++) // Эти не совпадают
-                edge[1].push_back(ij + k * num_split_edge_x);
-            if (InVector(ij + ny * num_split_edge_x, corner)) {
-                edge[1].push_back(ij + ny * num_split_edge_x);
-                corner[it] = ij + ny * num_split_edge_x;
+                edge[1].push_back(ij + k * NUM__NODES_IN_EDGE_X);
+            if (InVector(ij + ny * NUM__NODES_IN_EDGE_X, corner)) {
+                edge[1].push_back(ij + ny * NUM__NODES_IN_EDGE_X);
+                corner[it] = ij + ny * NUM__NODES_IN_EDGE_X;
                 it++;
             }
         }
@@ -289,59 +288,6 @@ int Create_Grid() {
     File_Edge.close();
     corner.clear();
 }
-
-#pragma region Генерация сетки
-//void GenEndElGrid() { // создание конечноэлементной сетки
-//    ifstream file_in("grid_coordinates.txt");
-//    num_split_edge = num_split + 1; //число узлов в ребре 
-//    num_nodes = pow(num_split_edge, 2); //число узлов    
-//    nodes.resize(num_nodes);
-//    m = num_split - 1;
-//    double start_point_x, start_point_y, end_point_x, end_point_y;
-//    file_in >> start_point_x >> end_point_x;
-//    file_in >> start_point_y >> end_point_y;
-//    file_in.close();
-//    if (choice == 1) {
-//        h_x = (end_point_x - start_point_x) / num_split;
-//        h_y = (end_point_y - start_point_y) / num_split;
-//        for (int i = 0, k = 0; i < num_nodes;) {
-//            for (int j = 0; j < num_split_edge; j++) {
-//                nodes[i + j] = { start_point_x + j * h_x, start_point_y + k * h_y };
-//            }
-//            i += num_split_edge;
-//            k++;
-//        }
-//    }
-//    else {   
-//        for (int j = 0; j < num_split_edge; j++) {
-//            if (j == 0) {
-//                h_x = 0;
-//                nodes[j] = { start_point_x + h_x, start_point_y };
-//                h_x = (end_point_x - start_point_x) * (1 - coef_q_x) / (1 - pow(coef_q_x, num_split));
-//            }
-//            else {
-//                nodes[j] = { nodes[j - 1].first + h_x, start_point_y};
-//                h_x *= coef_q_x;
-//            }
-//        }
-//        h_y = (end_point_y - start_point_y) * (1 - coef_q_y) / (1 - pow(coef_q_y, num_split));
-//        for (int i = num_split_edge; i < num_nodes;) {
-//            for (int j = 0; j < num_split_edge; j++) {
-//                if (j == 0) {
-//                    h_x = 0;
-//                    nodes[i + j] = { start_point_x + h_x, nodes[i - 1].second + h_y };
-//                    h_x = (end_point_x - start_point_x) * (1 - coef_q_x) / (1 - pow(coef_q_x, num_split));
-//                }
-//                else {
-//                    nodes[i + j] = { nodes[j - 1].first + h_x, nodes[i - 1].second + h_y };
-//                    h_x *= coef_q_x;
-//                }
-//            }
-//            h_y *= coef_q_y;
-//            i += num_split_edge;
-//        }
-//    }
-//}
 #pragma endregion
 
 #pragma region Работа с краевыми условиями и фиктивными узлами
@@ -359,15 +305,15 @@ void ConsiderBoundConditFirstType() { // учет краевых условий 
 void ConsiderBoundConditSecType() { // учет краевых условий второго типа
     for (int i = 0; i < edge[1].size(); i++) {
         int j = edge[1][i];
-        int up_point = j + num_split_edge_x;
-        au[0][up_point] = -lambda / (nodes[up_point].second - nodes[j].second);
-        di[j] = lambda / (nodes[up_point].second - nodes[j].second);
+        int up_point = j + NUM__NODES_IN_EDGE_X;
+        au[0][up_point] = -LAMBDA / (nodes[up_point].second - nodes[j].second);
+        di[j] = LAMBDA / (nodes[up_point].second - nodes[j].second);
         b[j] = theta(nodes[j].first, nodes[j].second);
     }
 }
 
 void ConsiderFictitiousNodes() { // учет фиктивных узлов
-    for (int i = 0; i < num_nodes; i++) {
+    for (int i = 0; i < NUM_NODES; i++) {
         if (IsFictitious(i)) {
             b[i] = 0;
             di[i] = double(1);
@@ -379,35 +325,35 @@ void ConsiderFictitiousNodes() { // учет фиктивных узлов
 #pragma region Построение глобальной матрицы и вектора
 
 void BuildMatrA() {
-    al.assign(2, vector<double> (num_nodes));
-    au.assign(2, vector<double> (num_nodes));
-    di.resize(num_nodes);
-    for (int i = 0; i < num_nodes; i++) {
+    al.assign(2, vector<double> (NUM_NODES));
+    au.assign(2, vector<double> (NUM_NODES));
+    di.resize(NUM_NODES);
+    for (int i = 0; i < NUM_NODES; i++) {
         if (!InVector(i, edge[0]) || !InVector(i, edge[1])) continue;
         if (IsFictitious(i)) continue;
 
         int left_point, right_point, down_point, up_point;
         double h_x_prev, h_x_curr, h_y_prev, h_y_curr; // предыдущий / текущий
-        down_point = i - num_split_edge_x;
-        up_point = i + num_split_edge_x;
+        down_point = i - NUM__NODES_IN_EDGE_X;
+        up_point = i + NUM__NODES_IN_EDGE_X;
         left_point = i - 1;
         right_point = i + 1;
         h_x_prev = nodes[i].first - nodes[left_point].first;
         h_x_curr = nodes[right_point].first - nodes[i].first;
         h_y_prev = nodes[i].second - nodes[down_point].second;
         h_y_curr = nodes[up_point].second - nodes[i].second;
-        al[0][i] = -2 * lambda / (h_y_prev * (h_y_curr + h_y_prev));
-        al[1][i] = -2 * lambda / (h_x_prev * (h_x_curr + h_x_prev));
-        au[0][i + num_split_edge_x] = -2 * lambda / (h_y_curr * (h_y_curr + h_y_prev));
-        au[1][i + 1] = -2 * lambda / (h_x_curr * (h_x_curr + h_x_prev));
-        di[i] = 2 * lambda * (1 / (h_x_curr * h_x_prev) + 1 / (h_y_curr * h_y_prev)) + gamma;
+        al[0][i] = -2 * LAMBDA / (h_y_prev * (h_y_curr + h_y_prev));
+        al[1][i] = -2 * LAMBDA / (h_x_prev * (h_x_curr + h_x_prev));
+        au[0][i + NUM__NODES_IN_EDGE_X] = -2 * LAMBDA / (h_y_curr * (h_y_curr + h_y_prev));
+        au[1][i + 1] = -2 * LAMBDA / (h_x_curr * (h_x_curr + h_x_prev));
+        di[i] = 2 * LAMBDA * (1 / (h_x_curr * h_x_prev) + 1 / (h_y_curr * h_y_prev)) + GAMMA;
         
     }
 }
 
 void BuildVecB() {
-    b.resize(num_nodes);
-    for (int i = 0; i < num_nodes; i++) {
+    b.resize(NUM_NODES);
+    for (int i = 0; i < NUM_NODES; i++) {
         if (!InVector(i, edge[0]) || !InVector(i, edge[1])) continue;
         if (IsFictitious(i)) continue;
         b[i] = f(nodes[i].first, nodes[i].second);
@@ -420,7 +366,7 @@ void BuildVecB() {
 
 double norma() {
     double res = 0;
-    for (int i = 0; i < num_nodes; i++) {
+    for (int i = 0; i < NUM_NODES; i++) {
         res += b[i] * b[i];
     }
     return sqrt(res);
@@ -437,10 +383,10 @@ double iter(int i) {
         temp += al[0][i] * q[i - m - 2];
     }
 
-    if (i < num_nodes - 1) {
+    if (i < NUM_NODES - 1) {
         temp += au[1][i + 1] * q[i + 1];
     }
-    if (i < num_nodes - m - 2) {
+    if (i < NUM_NODES - m - 2) {
         temp += au[0][i + m + 2] * q[i + m + 2];
     }
     temp = b[i] - temp;
@@ -454,7 +400,7 @@ void GaussZaid(double w, double eps, int max_iter) {
     double norm = norma();
     for (; counter < max_iter && resid > eps; counter++) {
         resid = 0;
-        for (int i = 0; i < num_nodes; i++) {
+        for (int i = 0; i < NUM_NODES; i++) {
             double temp = iter(i);
             q[i] = q[i] + w * temp / di[i];
             resid += temp * temp;
@@ -466,21 +412,23 @@ void GaussZaid(double w, double eps, int max_iter) {
 #pragma endregion
 
 #pragma region Тестирование
-//void Test() {
-//    vector<double> q_u(num_nodes, 0);
-//    for (int i = 0; i < num_nodes; i++) {
-//        q_u[i] = u_g(0, nodes[i].first, nodes[i].second);
-//    }
-//    double norm_vec_err = 0, norm_vec_q_u = 0; // норма вектора погрешности и q_u
-//    for (int i = 0; i < num_nodes; i++) {
-//        norm_vec_err += (q[i] - q_u[i]) * (q[i] - q_u[i]);
-//        norm_vec_q_u += (q_u[i]) * (q_u[i]);
-//    }
-//    cout << endl;
-//    cout << "Относительная норма вектора погрешности полученного решения:" << endl;
-//    cout << sqrt(norm_vec_err) / sqrt(norm_vec_q_u) << endl;
-//}
+void Test() {
+    vector<double> q_u(NUM_NODES, 0);
+    for (int i = 0; i < NUM_NODES; i++) {
+        q_u[i] = u_g(nodes[i].first, nodes[i].second);
+    }
+    double norm_vec_err = 0, norm_vec_q_u = 0; // норма вектора погрешности и q_u
+    for (int i = 0; i < NUM_NODES; i++) {
+        if (IsFictitious(i)) continue;
+        norm_vec_err += (q[i] - q_u[i]) * (q[i] - q_u[i]);
+        norm_vec_q_u += (q_u[i]) * (q_u[i]);
+    }
+    cout << endl;
+    cout << "Относительная норма вектора погрешности полученного решения:" << endl;
+    cout << sqrt(norm_vec_err) / sqrt(norm_vec_q_u) << endl;
+}
 #pragma endregion
+
 
 int main()
 {
@@ -491,11 +439,12 @@ int main()
     ConsiderBoundConditSecType();
     ConsiderBoundConditFirstType();
     ConsiderFictitiousNodes();
-    m = num_split_edge_x - 2;
-    q.resize(num_nodes, 0);
+    m = NUM__NODES_IN_EDGE_X - 2;
+    q.resize(NUM_NODES, 0);
     int max_iter = 1000;
     double eps = 1e-15;
     double w = 1;
     GaussZaid(w, eps, max_iter);
+    Test();
     Output();
 }
